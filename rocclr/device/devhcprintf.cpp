@@ -156,6 +156,12 @@ static int format(FILE* stream, const uint64_t* begin, const uint64_t* end) {
   const char convSpecifiers[] = "diouxXfFeEgGaAcspn";
   auto ptr = begin;
 
+  // The format string must be null terminated within the message.
+  const size_t avail = (end > ptr) ? static_cast<size_t>(end - ptr) * sizeof(uint64_t) : 0;
+  if (avail == 0 || memchr(ptr, '\0', avail) == nullptr) {
+    return -1;
+  }
+
   const std::string fmt(reinterpret_cast<const char*>(ptr));
   ptr += (fmt.length() + 7 + 1) / 8;  // the extra '1' is for the null
 
