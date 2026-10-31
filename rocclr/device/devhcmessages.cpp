@@ -155,6 +155,13 @@ bool MessageHandler::handlePayload(uint32_t service, uint64_t* payload) {
 
   switch (service) {
     case SERVICE_PRINTF:
+      // handlePrintf unconditionally reads the control word at input[0], so
+      // a message that was assembled with no data must be rejected.
+      if (message->data_.empty()) {
+        ClPrint(amd::LOG_ERROR, amd::LOG_ALWAYS, "Hostcall: Empty message");
+        discardMessage(message);
+        return false;
+      }
       amd::handlePrintf(payload, message->data_.data(), message->data_.size());
       break;
     default:
