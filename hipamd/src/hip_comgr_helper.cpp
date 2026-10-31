@@ -78,6 +78,9 @@ static std::string trimName(std::string& input, char trim) {
 static char getFeatureValue(std::string& input, std::string feature) {
   char res = ' ';
   if (consume(input, std::move(feature))) {
+    if (input.empty()) {
+      return res;
+    }
     res = input[0];
     input = input.substr(1);
   }
