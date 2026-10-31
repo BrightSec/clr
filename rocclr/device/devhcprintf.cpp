@@ -53,8 +53,12 @@ static const uint64_t* consumeFloatingPoint(FILE* stream, int* outCount, const s
 
 template <typename... Args>
 static const uint64_t* consumeCstring(FILE* stream, int* outCount, const std::string& spec,
-                                      const uint64_t* ptr, Args... args) {
+                                      const uint64_t* ptr, const uint64_t* end, Args... args) {
   const char* str = reinterpret_cast<const char*>(ptr);
+  // The string must be null terminated within the message.
+  if (end <= ptr || memchr(str, '\0', static_cast<size_t>(end - ptr) * sizeof(uint64_t)) == nullptr) {
+    return end;
+  }
   checkPrintf(stream, outCount, spec.c_str(), args..., str);
   size_t payloadBytes = std::strlen(str) + 1;
   size_t qwords = (payloadBytes + 7) / 8;
@@ -91,7 +95,7 @@ static const uint64_t* consumeArgument(FILE* stream, int* outCount, const std::s
     case 'A':
       return consumeFloatingPoint(stream, outCount, spec, ptr, args...);
     case 's':
-      return consumeCstring(stream, outCount, spec, ptr, args...);
+      return consumeCstring(stream, outCount, spec, ptr, end, args...);
     case 'p':
       return consumePointer(stream, outCount, spec, ptr, args...);
     case 'n':
@@ -213,6 +217,12 @@ static int format(FILE* stream, const uint64_t* begin, const uint64_t* end) {
 
     // [mark,point) now contains a complete specifier.
     const std::string spec(fmt, mark, point - mark);
+
+    // Only flags, width, precision and length modifiers may precede the conversion character.
+    // Anything else (e.g. an embedded '%' or an unknown conversion) is undefined behaviour.
+    if (spec.find_first_not_of("-+ #0123456789.*hlLqjzt", 1) != spec.size() - 1) {
+      return outCount;
+    }
     ptr = processSpec(stream, &outCount, spec, ptr, end);
     if (outCount < 0) {
       return outCount;
