@@ -120,6 +120,24 @@ class elfio {
       return false;
     }
 
+    // Make sure the section/segment header tables are actually inside the stream
+    // before trusting the counts, offsets and entry sizes from the (untrusted) header.
+    stream.clear();
+    stream.seekg(0, stream.end);
+    std::streamoff total_size = stream.tellg();
+    if (total_size < 0) {
+      return false;
+    }
+    const bool is64 = (header->get_class() == ELFCLASS64);
+    if (!table_fits(header->get_sections_offset(), header->get_sections_num(),
+                    header->get_section_entry_size(), is64 ? sizeof(Elf64_Shdr) : sizeof(Elf32_Shdr),
+                    (Elf64_Off)total_size) ||
+        !table_fits(header->get_segments_offset(), header->get_segments_num(),
+                    header->get_segment_entry_size(), is64 ? sizeof(Elf64_Phdr) : sizeof(Elf32_Phdr),
+                    (Elf64_Off)total_size)) {
+      return false;
+    }
+
     load_sections(stream);
     bool is_still_good = load_segments(stream);
     return is_still_good;
@@ -344,6 +362,18 @@ class elfio {
     section* shstrtab = sections.add(".shstrtab");
     shstrtab->set_type(SHT_STRTAB);
     shstrtab->set_addr_align(1);
+  }
+
+  //------------------------------------------------------------------------------
+  static bool table_fits(Elf64_Off offset, Elf_Half num, Elf_Half entry_size, size_t min_entry_size,
+                         Elf64_Off total_size) {
+    if (num == 0) {
+      return true;
+    }
+    if (entry_size < min_entry_size || offset > total_size) {
+      return false;
+    }
+    return (Elf64_Off)num * entry_size <= total_size - offset;
   }
 
   //------------------------------------------------------------------------------
