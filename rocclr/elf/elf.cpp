@@ -805,6 +805,18 @@ uint64_t Elf::getElfSize(const void* emi) {
   uint64_t total_size = 0;
   if (eclass == ELFCLASS32) {
     auto ehdr = static_cast<const Elf32_Ehdr*>(emi);
+    // The buffer length is unknown, so only reject section header tables whose
+    // address computation would wrap around the address space.
+    if (ehdr->e_shnum == 0) {
+      return ehdr->e_shoff;  // no section headers to inspect
+    } else {
+      const uint64_t table_size = static_cast<uint64_t>(sizeof(Elf32_Shdr)) * ehdr->e_shnum;
+      const uintptr_t base = reinterpret_cast<uintptr_t>(emi);
+      if (ehdr->e_shentsize < sizeof(Elf32_Shdr) || ehdr->e_shoff > UINTPTR_MAX - base ||
+          table_size > UINTPTR_MAX - base - ehdr->e_shoff) {
+        return 0;
+      }
+    }
     auto shdr = reinterpret_cast<const Elf32_Shdr*>(static_cast<const char*>(emi) + ehdr->e_shoff);
 
     auto max_offset = ehdr->e_shoff;
@@ -822,6 +834,16 @@ uint64_t Elf::getElfSize(const void* emi) {
     }
   } else if (eclass == ELFCLASS64) {
     auto ehdr = static_cast<const Elf64_Ehdr*>(emi);
+    if (ehdr->e_shnum == 0) {
+      return ehdr->e_shoff;  // no section headers to inspect
+    } else {
+      const uint64_t table_size = static_cast<uint64_t>(sizeof(Elf64_Shdr)) * ehdr->e_shnum;
+      const uintptr_t base = reinterpret_cast<uintptr_t>(emi);
+      if (ehdr->e_shentsize < sizeof(Elf64_Shdr) || ehdr->e_shoff > UINTPTR_MAX - base ||
+          table_size > UINTPTR_MAX - base - ehdr->e_shoff) {
+        return 0;
+      }
+    }
     auto shdr = reinterpret_cast<const Elf64_Shdr*>(static_cast<const char*>(emi) + ehdr->e_shoff);
 
     auto max_offset = ehdr->e_shoff;
