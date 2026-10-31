@@ -1018,7 +1018,14 @@ void Kernel::InitPrintf(const std::vector<std::string>& printfInfoStrings) {
       printf_.resize(HIPPrintfInfoID);
       pos++;
     } else {
-      printfInfoID = std::stoi(tokens[pos++]);
+      long long rawID = std::atoll(tokens[pos++].c_str());
+      // Reject negative or unreasonably large IDs to avoid huge allocations
+      constexpr long long kMaxPrintfInfoID = 1 << 16;
+      if (rawID < 0 || rawID >= kMaxPrintfInfoID) {
+        LogPrintfError("Invalid PrintInfo string: \"%s\"", str.c_str());
+        continue;
+      }
+      printfInfoID = static_cast<size_t>(rawID);
       if (printf_.size() <= printfInfoID) {
         printf_.resize(printfInfoID + 1);
       }
