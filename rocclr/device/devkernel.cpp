@@ -1033,11 +1033,16 @@ void Kernel::InitPrintf(const std::vector<std::string>& printfInfoStrings) {
 
     PrintfInfo& info = printf_[printfInfoID];
 
-    size_t numSizes = std::stoi(tokens[pos++]);
+    int rawNumSizes = std::stoi(tokens[pos++]);
+    if (rawNumSizes < 0) {
+      LogPrintfError("Invalid PrintInfo string: \"%s\"", str.c_str());
+      continue;
+    }
+    size_t numSizes = static_cast<size_t>(rawNumSizes);
     end = pos + numSizes;
 
     // ensure that we have the correct number of tokens
-    if (tokens.size() < end + 1 /*last token is the fmtString*/) {
+    if (end < pos || tokens.size() < end + 1 /*last token is the fmtString*/) {
       LogPrintfError("Invalid PrintInfo string: \"%s\"", str.c_str());
       continue;
     }
